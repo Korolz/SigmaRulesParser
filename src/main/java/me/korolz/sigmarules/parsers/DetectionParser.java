@@ -186,6 +186,8 @@ public class DetectionParser {
                     return ".*" + sigmaWildcardToRegex(value) + ".*";
                 case ENDS_WITH:
                     return ".*" + sigmaWildcardToRegex(value);
+                case WINDASH:
+                    return buildStringWithModifier(value.replace("-", "/"), ModifierType.CONTAINS);
                 case REGEX:
                     if (!validRegex(value))
                         throw new InvalidSigmaRuleException("Regular expression operator specified " +

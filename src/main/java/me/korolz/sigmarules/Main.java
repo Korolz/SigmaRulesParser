@@ -20,11 +20,20 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class Main {
+    public static final String ONE_OF_SELECTION = "1 of selection_*";
+    public static final String ALL_OF_SELECTION = "all of selection_*";
     public static void main(String[] args) throws IOException, InvalidSigmaRuleException, SigmaRuleParserException, InterruptedException {
 //        String yaml = getSigmaRuleFromFile("ps.yml");
-//        String yaml = getSigmaRuleFromFile("notCondition.yml");
-        String yaml = getSigmaRuleFromFile("simpleCondition.yml");
+        String yaml = getSigmaRuleFromFile("notCondition.yml");
+//        String yaml = getSigmaRuleFromFile("simpleCondition.yml");
 //        String yaml = getSigmaRuleFromFile("simpleCondition2.yml");
+        System.out.println(yaml);
+
+        System.out.println(startParseYamlToOpenSearchQuery(yaml));
+        System.out.println(getOneQueryFromSigmaRuleWithSigConverter(yaml));
+    }
+
+    public static String startParseYamlToOpenSearchQuery(String yaml) throws IOException, InvalidSigmaRuleException, SigmaRuleParserException {
         SigmaRuleParser ruleParser = new SigmaRuleParser();
         SigmaRule sigmaRule = ruleParser.parseRule(yaml);
 
@@ -39,17 +48,43 @@ public class Main {
         // Вычленяем имена Detection из строки Condition
         List<String> conditionNames = recursiveInspectConditionNames(sigmaConditions.get(0), new ArrayList<>());
 
+        if (condition.equals(ONE_OF_SELECTION) || condition.equals(ALL_OF_SELECTION)) {
+            conditionNames = List.copyOf(detectionsManager.getAllDetections().keySet());
+            condition = getConditionLine(condition, conditionNames);
+        }
+        return getQueryFromSimpleSigmaRule(condition, conditionNames, detectionsManager);
+    }
 
+    public static String getConditionLine(String condition, List<String> detectionsNames) {
+        StringBuilder conditionResult = new StringBuilder();
+        for (int i = 0; i < detectionsNames.size(); i++) {
+            if (i + 1 < detectionsNames.size()) {
+                if (condition.contains("all")) {
+                    conditionResult.append(detectionsNames.get(i) + " AND ");
+                } else {
+                    conditionResult.append(detectionsNames.get(i) + " OR ");
+                }
+            } else {
+                conditionResult.append(detectionsNames.get(i));
+            }
+        }
+        System.out.println(conditionResult);
+        return conditionResult.toString();
+    }
+
+    public static String getQueryFromSimpleSigmaRule(String result, List<String> conditionNames, DetectionsManager detectionsManager) {
         Iterator<String> namesIterator = conditionNames.iterator();
-        String result = condition.replaceAll(" and ", " AND ");
+        result = result.replaceAll(" and ", " AND ");
         result = result.replaceAll(" or ", " OR ");
         String valueResult = new String();
         while (namesIterator.hasNext()) {
             StringBuilder valueByDetectionName = new StringBuilder();
             String currentDetectionName = namesIterator.next();
-            System.out.println(currentDetectionName);
             List<SigmaDetection> detections = detectionsManager.getDetectionsByName(currentDetectionName).getDetections();
+            System.out.println(currentDetectionName);
             for (SigmaDetection d : detections) {
+                System.out.println(d.getName() + ": " + d.getValues());
+
                 valueByDetectionName.append(d.getName() + ":" + d.getValues() + " AND ");
                 valueResult = valueByDetectionName.toString().replaceAll("\\\\\\.", ".");
                 valueResult = valueResult.replaceAll("\\\\\\.\\*", "\\\\\\\\.*");
@@ -77,8 +112,8 @@ public class Main {
         }
         if (result.contains("-")) result = result.replaceAll("-", Matcher.quoteReplacement("\\") + "-");
         if (result.contains("/")) result = result.replaceAll("/", Matcher.quoteReplacement("\\") + "/");
-        System.out.println(result);
-        System.out.println(getOneQueryBySigmaRule(yaml));
+
+        return result;
     }
 
     public static String getConditionLineFromYaml(String yaml) {
@@ -129,7 +164,7 @@ public class Main {
         return newYaml.toString();
     }
 
-    private static String getOneQueryBySigmaRule(String yaml) throws IOException, InterruptedException {
+    private static String getOneQueryFromSigmaRuleWithSigConverter(String yaml) throws IOException, InterruptedException {
         String encoded = Base64.getEncoder().encodeToString(yaml.getBytes());
         String jsonInputString = String.format(
                 "{\"rule\":\"%s\",\"pipelineYml\":\"\",\"pipeline\":[],\"target\":\"opensearch\",\"format\":\"default\"}",

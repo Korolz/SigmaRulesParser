@@ -1,44 +1,25 @@
-title: Program Executions in Suspicious Folders
-id: a39d7fa7-3fbd-4dc2-97e1-d87f546b1bbc
+title: Certificate Exported Via Certutil.EXE
+id: 3ffd6f51-e6c1-47b7-94b4-c1e61d4117c5
 status: test
-description: Detects program executions in suspicious non-program folders related to malware or hacking activity
+description: Detects the execution of the certutil with the "exportPFX" flag which allows the utility to export certificates.
 references:
-  - Internal Research
-author: Florian Roth (Nextron Systems)
-date: 2018-01-23
-modified: 2021-11-27
+  - https://www.splunk.com/en_us/blog/security/a-golden-saml-journey-solarwinds-continued.html
+author: Florian Roth (Nextron Systems), Jonhnathan Ribeiro, oscd.community, Nasreddine Bencherchali (Nextron Systems)
+date: 2023-02-15
+modified: 2024-03-05
 tags:
-  - attack.t1587
-  - attack.t1584
-  - attack.resource-development
+  - attack.defense-evasion
+  - attack.t1027
 logsource:
-  product: linux
-  service: auditd
+  category: process_creation
+  product: windows
 detection:
-  selection:
-    type: 'SYSCALL'
-    exe|startswith:
-      # Temporary folder
-      - '/tmp/'
-      # Web server
-      - '/var/www/'              # Standard
-      - '/home/*/public_html/'   # Per-user
-      - '/usr/local/apache2/'    # Classical Apache
-      - '/usr/local/httpd/'      # Old SuSE Linux 6.* Apache
-      - '/var/apache/'           # Solaris Apache
-      - '/srv/www/'              # SuSE Linux 9.*
-      - '/home/httpd/html/'      # Redhat 6 or older Apache
-      - '/srv/http/'             # ArchLinux standard
-      - '/usr/share/nginx/html/' # ArchLinux nginx
-      # Data dirs of typically exploited services (incomplete list)
-      - '/var/lib/pgsql/data/'
-      - '/usr/local/mysql/data/'
-      - '/var/lib/mysql/'
-      - '/var/vsftpd/'
-      - '/etc/bind/'
-      - '/var/named/'
-  condition: selection
+  selection_img:
+    - Image|endswith: '\certutil.exe'
+    - OriginalFileName: 'CertUtil.exe'
+  selection_cli:
+    CommandLine|contains|windash: '-exportPFX '
+  condition: all of selection_*
 falsepositives:
-  - Admin activity (especially in /tmp folders)
-  - Crazy web applications
+  - There legitimate reasons to export certificates. Investigate the activity to determine if it's benign
 level: medium
