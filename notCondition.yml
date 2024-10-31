@@ -1,26 +1,44 @@
-title: User Added to Local Administrators
-id: c265cf08-3f99-46c1-8d59-328247057d57
-description: This rule triggers on user accounts that are added to the local Administrators group, which could be legitimate activity or a sign of privilege escalation
-  activity
-status: stable
-author: Florian Roth
-date: 2017/03/14
+title: Program Executions in Suspicious Folders
+id: a39d7fa7-3fbd-4dc2-97e1-d87f546b1bbc
+status: test
+description: Detects program executions in suspicious non-program folders related to malware or hacking activity
+references:
+  - Internal Research
+author: Florian Roth (Nextron Systems)
+date: 2018-01-23
+modified: 2021-11-27
 tags:
-  - attack.privilege_escalation
-  - attack.t1078
+  - attack.t1587
+  - attack.t1584
+  - attack.resource-development
 logsource:
-  product: windows
-  service: security
+  product: linux
+  service: auditd
 detection:
   selection:
-    EventID: 4732
-  selection_group1:
-    GroupName: 'Administrators'
-  selection_group2:
-    GroupSid: 'S-1-5-32-544'
-  filter:
-    SubjectUserName: '*$'
-  condition: selection and (1 of selection_group*) and not filter
+    type: 'SYSCALL'
+    exe|startswith:
+      # Temporary folder
+      - '/tmp/'
+      # Web server
+      - '/var/www/'              # Standard
+      - '/home/*/public_html/'   # Per-user
+      - '/usr/local/apache2/'    # Classical Apache
+      - '/usr/local/httpd/'      # Old SuSE Linux 6.* Apache
+      - '/var/apache/'           # Solaris Apache
+      - '/srv/www/'              # SuSE Linux 9.*
+      - '/home/httpd/html/'      # Redhat 6 or older Apache
+      - '/srv/http/'             # ArchLinux standard
+      - '/usr/share/nginx/html/' # ArchLinux nginx
+      # Data dirs of typically exploited services (incomplete list)
+      - '/var/lib/pgsql/data/'
+      - '/usr/local/mysql/data/'
+      - '/var/lib/mysql/'
+      - '/var/vsftpd/'
+      - '/etc/bind/'
+      - '/var/named/'
+  condition: selection
 falsepositives:
-  - Legitimate administrative activity
+  - Admin activity (especially in /tmp folders)
+  - Crazy web applications
 level: medium

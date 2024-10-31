@@ -20,9 +20,17 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class Main {
-    public static void main(String[] args) throws IOException, InvalidSigmaRuleException, SigmaRuleParserException {
-        SigmaRule sigmaRule = getSigmaRuleFromFile("simpleCondition.yml");
-//        SigmaRule sigmaRule = getSigmaRuleFromFile("simpleCondition2.yml");
+    public static void main(String[] args) throws IOException, InvalidSigmaRuleException, SigmaRuleParserException, InterruptedException {
+//        String yaml = getSigmaRuleFromFile("ps.yml");
+//        String yaml = getSigmaRuleFromFile("notCondition.yml");
+        String yaml = getSigmaRuleFromFile("simpleCondition.yml");
+//        String yaml = getSigmaRuleFromFile("simpleCondition2.yml");
+        SigmaRuleParser ruleParser = new SigmaRuleParser();
+        SigmaRule sigmaRule = ruleParser.parseRule(yaml);
+
+        // Получаем строку condition непосредственно из Yaml-файла
+        String condition = getConditionLineFromYaml(yaml);
+        System.out.println(condition);
 
         // Получаем все Conditions и Detections
         List<SigmaCondition> sigmaConditions = sigmaRule.getConditionsManager().getConditions();
@@ -30,44 +38,62 @@ public class Main {
 
         // Вычленяем имена Detection из строки Condition
         List<String> conditionNames = recursiveInspectConditionNames(sigmaConditions.get(0), new ArrayList<>());
-        System.out.println(conditionNames);
 
-        // Получаем операторы
-        List<String> operatorsNames = recursiveInspectOperatorsNames(sigmaConditions.get(0), new ArrayList<>());
-
-        // Собираем в строку запроса
-        StringBuilder query1 = new StringBuilder();
-        if (conditionNames.size() > 1) {
-            for (int i = 0; i < conditionNames.size(); i++) {
-                if (i > 0 && operatorsNames.get(i).equals("(NOT")) {
-                    query1.append(operatorsNames.get(i) + " " + conditionNames.get(i) + ") ");
-                    continue;
-                }
-                query1.append(conditionNames.get(i) + " " + operatorsNames.get(i) + " ");
-            }
-        } else query1.append(conditionNames.get(0));
 
         Iterator<String> namesIterator = conditionNames.iterator();
-        String result = query1.toString().replaceAll(" and ", " AND ");
+        String result = condition.replaceAll(" and ", " AND ");
+        result = result.replaceAll(" or ", " OR ");
+        String valueResult = new String();
         while (namesIterator.hasNext()) {
             StringBuilder valueByDetectionName = new StringBuilder();
             String currentDetectionName = namesIterator.next();
             System.out.println(currentDetectionName);
             List<SigmaDetection> detections = detectionsManager.getDetectionsByName(currentDetectionName).getDetections();
-            detections.forEach(d -> valueByDetectionName.append(d.getName() + ":" + d.getValues() + " AND "));
-            String valueResult = valueByDetectionName.toString();
+            for (SigmaDetection d : detections) {
+                valueByDetectionName.append(d.getName() + ":" + d.getValues() + " AND ");
+                valueResult = valueByDetectionName.toString().replaceAll("\\\\\\.", ".");
+                valueResult = valueResult.replaceAll("\\\\\\.\\*", "\\\\\\\\.*");
 
-            System.out.println(valueResult);
-
-            if (valueResult.endsWith(" AND ")) valueResult = new StringBuilder(valueResult).delete(valueResult.length() - 5, valueResult.length()).toString();
-            if (valueResult.contains(", "))  valueResult = valueResult.replaceAll(", ", " OR ");
-            if (valueResult.contains("[")) valueResult = valueResult.replaceAll("\\[", "(");
-            if (valueResult.contains("]")) valueResult = valueResult.replaceAll("]", ")");
-            if (valueResult.contains("-")) valueResult = valueResult.replaceAll("-", Matcher.quoteReplacement("\\\\") + "-");
-            System.out.println(valueResult);
+                if (valueResult.contains("\\")) valueResult = valueResult.replaceAll("\\\\", Matcher.quoteReplacement("\\\\"));
+                if (d.getMatchAll()) {
+                    if (valueResult.endsWith(" AND ")) valueResult = new StringBuilder(valueResult).delete(valueResult.length() - 5, valueResult.length()).toString();
+                    if (valueResult.contains(", "))  valueResult = valueResult.replaceAll(", ", "\" AND " + d.getName() + ":");
+                    if (valueResult.contains("[")) valueResult = valueResult.replaceAll("\\[", "\"");
+                    if (valueResult.contains("]")) valueResult = valueResult.replaceAll("]", "\"");
+                    if (valueResult.endsWith("\"")) valueResult = new StringBuilder(valueResult).delete(valueResult.length() - 1, valueResult.length()).toString();
+                } else {
+                    if (valueResult.endsWith(" AND ")) valueResult = new StringBuilder(valueResult).delete(valueResult.length() - 5, valueResult.length()).toString();
+                    if (valueResult.contains(", "))  valueResult = valueResult.replaceAll(", ", " OR ");
+                    if (valueResult.contains("[")) valueResult = valueResult.replaceAll("\\[", "(");
+                    if (valueResult.contains("]")) valueResult = valueResult.replaceAll("]", ")");
+                }
+            }
             result = result.replaceAll(currentDetectionName, "(" + valueResult + ")");
         }
+
+        if (result.contains("not")) {
+            result = result.replaceAll("not", "(NOT");
+            result = result + ")";
+        }
+        if (result.contains("-")) result = result.replaceAll("-", Matcher.quoteReplacement("\\") + "-");
+        if (result.contains("/")) result = result.replaceAll("/", Matcher.quoteReplacement("\\") + "/");
         System.out.println(result);
+        System.out.println(getOneQueryBySigmaRule(yaml));
+    }
+
+    public static String getConditionLineFromYaml(String yaml) {
+        String condition = "";
+        try (BufferedReader br = new BufferedReader(new StringReader(yaml))) {
+            Iterator<String> iterator = br.lines().iterator();
+            while (iterator.hasNext()) {
+                String currentLine = iterator.next();
+                if (currentLine.contains("condition")) condition = currentLine.replace("  condition: ", "");
+            }
+            return condition;
+        } catch (IOException e) {
+            System.out.println(e.getMessage());
+        }
+        return condition;
     }
 
     public static List<String> recursiveInspectConditionNames(SigmaCondition condition, List<String> conditionNames){
@@ -89,7 +115,7 @@ public class Main {
         return operatorNames;
     }
 
-    private static SigmaRule getSigmaRuleFromFile(String file) throws IOException, InvalidSigmaRuleException, SigmaRuleParserException {
+    private static String getSigmaRuleFromFile(String file) throws IOException, InvalidSigmaRuleException, SigmaRuleParserException {
         StringBuilder newYaml = new StringBuilder();
         try (BufferedReader br = (new BufferedReader(new InputStreamReader(new FileInputStream(file))))) {
             Iterator iterator = br.lines().iterator();
@@ -100,8 +126,7 @@ public class Main {
         } catch (IOException e) {
             System.out.println(e.getMessage());
         }
-        SigmaRuleParser ruleParser = new SigmaRuleParser();
-        return ruleParser.parseRule(newYaml.toString());
+        return newYaml.toString();
     }
 
     private static String getOneQueryBySigmaRule(String yaml) throws IOException, InterruptedException {
@@ -110,8 +135,6 @@ public class Main {
                 "{\"rule\":\"%s\",\"pipelineYml\":\"\",\"pipeline\":[],\"target\":\"opensearch\",\"format\":\"default\"}",
                 encoded
         );
-
-        System.out.println(jsonInputString);
         HttpClient client = HttpClient.newHttpClient();
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create("https://sigconverter.io/sigma"))
