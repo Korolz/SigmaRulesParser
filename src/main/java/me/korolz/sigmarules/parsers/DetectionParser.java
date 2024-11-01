@@ -13,6 +13,7 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 import org.apache.commons.lang3.StringUtils;
@@ -223,7 +224,9 @@ public class DetectionParser {
                 case '*': out.append(".*"); break;
                 case '?': out.append('.'); break;
                 case '.': out.append("\\."); break;
-                case '\\': out.append("\\\\"); break;
+                case '\\': out.append("\\\\\\\\"); break;
+                case '-': out.append(Matcher.quoteReplacement("\\") + "-"); break;
+                case '/': out.append(Matcher.quoteReplacement("\\") + "/"); break;
                 default: out.append(c);
             }
         }
