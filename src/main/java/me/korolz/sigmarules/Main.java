@@ -48,9 +48,7 @@ public class Main {
 
 //      Вычленяем имена Detection из строки Condition
         List<String> conditionNames = new ArrayList<>();
-        Iterator<SigmaCondition> iterator = sigmaConditions.iterator();
-        while (iterator.hasNext()) {
-            SigmaCondition sigmaCondition = iterator.next();
+        for (SigmaCondition sigmaCondition : sigmaConditions) {
             recursiveInspectConditionNames(sigmaCondition, conditionNames);
         }
         System.out.println(conditionNames);
@@ -81,7 +79,62 @@ public class Main {
         return conditionResult.toString();
     }
 
+    public static String getHardConditionLine(String result, List<String> conditionNames, DetectionsManager detectionsManager) {
+        List<String> detectionName = detectionsManager.getAllDetections().keySet().stream().collect(Collectors.toList());
+        System.out.println(detectionName);
+        Map<String, String> keyValue = new HashMap<>();
+        for (String currentDetectionName : detectionName) {
+            for (String conditionName : conditionNames) {
+                if (!conditionName.equals("of")) {
+                    if (currentDetectionName.contains(conditionName.replace("_*", ""))) {
+                        StringBuilder keyValueByDetectionName = new StringBuilder();
+                        List<SigmaDetection> detections = detectionsManager.getDetectionsByName(currentDetectionName).getDetections();
+                        for (SigmaDetection d : detections) {
+                            String currentValue = d.getValues().toString().replaceAll(":", "\\\\\\\\:");
+                            currentValue = currentValue.replaceAll(", ", " AND ");
+                            System.out.println(currentValue);
+                            if (isListForHardRules(yaml, currentDetectionName)) {
+                                if (d.getMatchAll()) {
+                                    keyValueByDetectionName.append(d.getName() + ":" + currentValue + " AND ");
+                                } else {
+                                    keyValueByDetectionName.append(d.getName() + ":" + currentValue + " OR ");
+                                }
+                            } else {
+                                keyValueByDetectionName.append(d.getName() + ":" + currentValue + " AND ");
+                            }
+                        }
+                        keyValueByDetectionName = new StringBuilder(deleteEnding(keyValueByDetectionName.toString()));
+                        keyValueByDetectionName = new StringBuilder(keyValueByDetectionName.toString().replaceAll("\\\\\\.\\*", "\\\\\\\\.*"));
+                        if (!keyValue.keySet().contains(conditionName)) {
+                            keyValue.put(conditionName, keyValueByDetectionName.toString());
+                        } else {
+                            keyValueByDetectionName.append(" OR " + keyValue.get(conditionName));
+                            keyValue.put(conditionName, keyValueByDetectionName.toString());
+                        }
+                    }
+                } else {
+                    result = result.replaceAll("1 of ", "");
+                    result = result.replaceAll("all of ", "");
+                }
+            }
+        }
+        for (String k : keyValue.keySet()) {
+            result = result.replaceAll(k, "(" + keyValue.get(k) + ")");
+        }
+        result = result.replaceAll("\\\\\\.\\*", "\\\\\\\\.*");
+
+        if (result.contains(", "))  result = result.replaceAll(", ", " OR ");
+        if (result.contains("[")) result = result.replaceAll("\\[", "(");
+        if (result.contains("]")) result = result.replaceAll("]", ")");
+        result = result.replaceAll("\\)" + "\\*", "))");
+        result = result.replace("not", "(NOT");
+
+        return result;
+    }
+
+
     public static String getQueryFromSimpleSigmaRule(String result, List<String> conditionNames, DetectionsManager detectionsManager) {
+        final String defaultResult = result;
         Iterator<String> namesIterator = conditionNames.iterator();
         String valueResult = "";
         while (namesIterator.hasNext()) {
@@ -90,10 +143,9 @@ public class Main {
             try {
                 detections = detectionsManager.getDetectionsByName(currentDetectionName).getDetections();
             } catch (NullPointerException e) {
-                conditionNames = detectionsManager.getAllDetections().keySet().stream().collect(Collectors.toList());
-//                result = getConditionLine(result, conditionNames);
-                result = getQueryFromSimpleSigmaRule(result, conditionNames, detectionsManager);
-                break;
+//                throw new NullPointerException("A rule named \"" + currentDetectionName + "\" cannot be processed");
+                result = defaultResult;
+                return getHardConditionLine(result, conditionNames, detectionsManager);
             }
             StringBuilder keyValueByDetectionName = new StringBuilder();
             for (SigmaDetection d : detections) {
@@ -118,6 +170,7 @@ public class Main {
                     if (valueResult.contains("]")) valueResult = valueResult.replaceAll("]", ")");
                 }
             }
+
             if (result.contains("not")) {
                 result = replaceNot(result);
             }
@@ -135,6 +188,13 @@ public class Main {
 
     public static String replaceNot(String value) {
         value = value.replace("not", "(NOT");
+        return value + ")";
+    }
+
+
+
+    public static String replaceOneOf(String value) {
+        value = value.replace("1 of", "(");
         return value + ")";
     }
 
@@ -249,6 +309,7 @@ public class Main {
             }
         }
     }
+
     private static boolean isList(String yaml, String detectionName) {
 
         try (BufferedReader br = (new BufferedReader(new StringReader(yaml)))) {
@@ -256,8 +317,27 @@ public class Main {
             while (iterator.hasNext()) {
                 String line = iterator.next();
                 if (line.contains(detectionName)) {
-                    String nextLine = iterator.next();
-                   if (nextLine.contains("- ")) return true;
+                    String nextLine = iterator.next().trim();
+                   if (nextLine.startsWith("- ")) return true;
+                }
+            }
+        } catch (IOException e) {
+            System.out.println(e.getMessage());
+        }
+        return false;
+    }
+
+    private static boolean isListForHardRules(String yaml, String detectionName) {
+
+        try (BufferedReader br = (new BufferedReader(new StringReader(yaml)))) {
+            Iterator<String> iterator = br.lines().iterator();
+            while (iterator.hasNext()) {
+                String line = iterator.next();
+                if (line.contains(detectionName)) {
+                    iterator.next();
+                    String nextLine = iterator.next().trim();
+                    System.out.println(nextLine);
+                    if (nextLine.startsWith("- ")) return true;
                 }
             }
         } catch (IOException e) {
