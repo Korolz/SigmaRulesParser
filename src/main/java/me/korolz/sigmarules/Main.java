@@ -1,5 +1,6 @@
 package me.korolz.sigmarules;
 
+import com.fasterxml.jackson.dataformat.yaml.UTF8Reader;
 import me.korolz.sigmarules.exceptions.InvalidSigmaRuleException;
 import me.korolz.sigmarules.exceptions.SigmaRuleParserException;
 import me.korolz.sigmarules.models.*;
@@ -23,12 +24,36 @@ public class Main {
     public static final String ONE_OF_SELECTION = "1 of selection_*";
     public static final String ALL_OF_SELECTION = "all of selection_*";
     public static String yaml = "";
+    public static int failCount = 0;
+    public static int allCount = 0;
+
     public static void main(String[] args) throws IOException, InvalidSigmaRuleException, SigmaRuleParserException, InterruptedException {
 //        yaml = getSigmaRuleFromFile("ps.yml");
 //        yaml = getSigmaRuleFromFile("notCondition.yml");
 //        yaml = getSigmaRuleFromFile("simpleCondition.yml");
 //        yaml = getSigmaRuleFromFile("simpleCondition2.yml");
         yaml = getSigmaRuleFromFile("hardRule.yml");
+
+
+//        try (Stream<Path> paths = Files.walk(Paths.get("sigmaRulesForTest"))) {
+//            List<String> filePaths = paths.map(Path::toString).collect(Collectors.toList());
+//            filePaths = filePaths.stream().filter(s -> s.endsWith("yml")).collect(Collectors.toList());
+//            allCount = filePaths.size();
+//            Iterator<String> iterator = filePaths.iterator();
+//            while (iterator.hasNext()) {
+//                String path = iterator.next();
+//                yaml = getSigmaRuleFromFile(path);
+//                try {
+//                    startParseYamlToOpenSearchQuery(yaml);
+//                } catch (Exception e) {
+//                    failCount++;
+//                    System.out.println(path);
+//                }
+//
+//            }
+//        }
+//        System.out.println(failCount);
+//        System.out.println(allCount);
 
         System.out.println(startParseYamlToOpenSearchQuery(yaml));
         System.out.println(getOneQueryFromSigmaRuleWithSigConverter(yaml));
@@ -40,7 +65,7 @@ public class Main {
 
         // Получаем строку condition непосредственно из Yaml-файла
         String condition = getConditionLineFromYaml(yaml);
-        System.out.println(condition);
+//        System.out.println(condition);
 
         // Получаем все Conditions и Detections
         List<SigmaCondition> sigmaConditions = sigmaRule.getConditionsManager().getConditions();
@@ -51,7 +76,7 @@ public class Main {
         for (SigmaCondition sigmaCondition : sigmaConditions) {
             recursiveInspectConditionNames(sigmaCondition, conditionNames);
         }
-        System.out.println(conditionNames);
+//        System.out.println(conditionNames);
 //        List<String> conditionNames = detectionsManager.getAllDetections().keySet().stream().collect(Collectors.toList());
 
         if (condition.equals(ONE_OF_SELECTION) || condition.equals(ALL_OF_SELECTION)) {
@@ -75,13 +100,13 @@ public class Main {
                 conditionResult.append(detectionsNames.get(i));
             }
         }
-        System.out.println(conditionResult);
+//        System.out.println(conditionResult);
         return conditionResult.toString();
     }
 
     public static String getHardConditionLine(String result, List<String> conditionNames, DetectionsManager detectionsManager) {
         List<String> detectionName = detectionsManager.getAllDetections().keySet().stream().collect(Collectors.toList());
-        System.out.println(detectionName);
+//        System.out.println(detectionName);
         Map<String, String> keyValue = new HashMap<>();
         for (String currentDetectionName : detectionName) {
             for (String conditionName : conditionNames) {
@@ -90,9 +115,13 @@ public class Main {
                         StringBuilder keyValueByDetectionName = new StringBuilder();
                         List<SigmaDetection> detections = detectionsManager.getDetectionsByName(currentDetectionName).getDetections();
                         for (SigmaDetection d : detections) {
-                            String currentValue = d.getValues().toString().replaceAll(":", "\\\\\\\\:");
-                            currentValue = currentValue.replaceAll(", ", " AND ");
-                            System.out.println(currentValue);
+                            String currentValue = d.getValues().toString();
+                            if (isListForHardRules(yaml, currentDetectionName) && !d.getMatchAll()) {
+                                currentValue = currentValue.replaceAll(", ", " OR ");
+                            } else {
+                                currentValue = currentValue.replaceAll(", ", " AND ");
+                            }
+//                            System.out.println(currentValue);
                             if (isListForHardRules(yaml, currentDetectionName)) {
                                 if (d.getMatchAll()) {
                                     keyValueByDetectionName.append(d.getName() + ":" + currentValue + " AND ");
@@ -145,6 +174,7 @@ public class Main {
             } catch (NullPointerException e) {
 //                throw new NullPointerException("A rule named \"" + currentDetectionName + "\" cannot be processed");
                 result = defaultResult;
+//                return result;
                 return getHardConditionLine(result, conditionNames, detectionsManager);
             }
             StringBuilder keyValueByDetectionName = new StringBuilder();
@@ -156,6 +186,8 @@ public class Main {
                 }
 //                valueResult = keyValueByDetectionName.toString().replaceAll("\\\\\\.", ".");
                 valueResult = keyValueByDetectionName.toString().replaceAll("\\\\\\.\\*", "\\\\\\\\.*");
+
+
 
                 if (d.getMatchAll()) {
                     valueResult = deleteEnding(valueResult);
@@ -169,11 +201,14 @@ public class Main {
                     if (valueResult.contains("[")) valueResult = valueResult.replaceAll("\\[", "(");
                     if (valueResult.contains("]")) valueResult = valueResult.replaceAll("]", ")");
                 }
+                if (valueResult.contains(":()")) valueResult = valueResult.replaceAll(":\\(\\)", "");
             }
 
             if (result.contains("not")) {
                 result = replaceNot(result);
             }
+
+//            System.out.println(valueResult);
             result = result.replaceAll(currentDetectionName, "(" + valueResult + ")");
         }
 
@@ -210,7 +245,7 @@ public class Main {
             condition = condition.replaceAll(" or ", " OR ");
             return condition;
         } catch (IOException e) {
-            System.out.println(e.getMessage());
+//            System.out.println(e.getMessage());
         }
         return condition;
     }
@@ -243,7 +278,7 @@ public class Main {
                 newYaml.append("\n");
             }
         } catch (IOException e) {
-            System.out.println(e.getMessage());
+//            System.out.println(e.getMessage());
         }
         return newYaml.toString();
     }
@@ -298,7 +333,7 @@ public class Main {
                         .build();
 
                 HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-                System.out.println(response.body());
+//                System.out.println(response.body());
 
                 try (BufferedWriter bw = new BufferedWriter(new FileWriter("result.txt", true))){
                     bw.append(id + ": " + response.body() + "\n");
@@ -322,7 +357,7 @@ public class Main {
                 }
             }
         } catch (IOException e) {
-            System.out.println(e.getMessage());
+//            System.out.println(e.getMessage());
         }
         return false;
     }
@@ -336,7 +371,7 @@ public class Main {
                 if (line.contains(detectionName)) {
                     iterator.next();
                     String nextLine = iterator.next().trim();
-                    System.out.println(nextLine);
+//                    System.out.println(nextLine);
                     if (nextLine.startsWith("- ")) return true;
                 }
             }

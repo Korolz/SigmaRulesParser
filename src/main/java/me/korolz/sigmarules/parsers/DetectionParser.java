@@ -7,15 +7,13 @@ import me.korolz.sigmarules.models.DetectionsManager;
 import me.korolz.sigmarules.models.ModifierType;
 import me.korolz.sigmarules.models.SigmaDetection;
 import me.korolz.sigmarules.models.SigmaDetections;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
+import java.util.stream.Collectors;
+
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -53,6 +51,17 @@ public class DetectionParser {
             if (detectionName.equals("condition") || detectionName.equals("timeframe") ||
                 detectionName.equals("fields")) {
                 // handle separately
+            } else if (detectionName.equals("keywords")) {
+                List<String> names = (List<String>) searchIdentifiers;
+                List<SigmaDetection> sigmaDetectionList = new ArrayList<>();
+                for (String s : names) {
+                    SigmaDetection sigmaDetection = new SigmaDetection();
+                    sigmaDetection.setName(s);
+                    sigmaDetectionList.add(sigmaDetection);
+                }
+               SigmaDetections sigmaDetections = new SigmaDetections();
+               sigmaDetections.setDetections(sigmaDetectionList);
+               detectionsManager.addDetections(detectionName,sigmaDetections);
             } else {
                 detectionsManager.addDetections(detectionName, parseDetection(searchIdentifiers));
             }
@@ -224,7 +233,10 @@ public class DetectionParser {
                 case '*': out.append(".*"); break;
                 case '?': out.append('.'); break;
                 case '.': out.append("\\."); break;
+                case ':': out.append("\\\\:"); break;
                 case '\\': out.append("\\\\\\\\"); break;
+                case '$': out.append("\\\\\\$"); break;
+                case '%': out.append("\\\\\\%"); break;
                 case '-': out.append(Matcher.quoteReplacement("\\") + "-"); break;
                 case '/': out.append(Matcher.quoteReplacement("\\") + "/"); break;
                 default: out.append(c);
