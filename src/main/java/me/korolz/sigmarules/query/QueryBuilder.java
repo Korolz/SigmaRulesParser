@@ -91,7 +91,6 @@ public class QueryBuilder {
             }
             result = result.replaceAll(currentDetectionName, "(" + valueResult + ")");
         }
-
         return result;
     }
 
@@ -111,7 +110,6 @@ public class QueryBuilder {
                             } else {
                                 currentValue = currentValue.replaceAll(", ", " AND ");
                             }
-//                            System.out.println(currentValue);
                             if (isListForHardRules(yaml, currentDetectionName)) {
                                 if (d.getMatchAll()) {
                                     keyValueByDetectionName.append(d.getName() + ":" + currentValue + " AND ");
@@ -140,7 +138,7 @@ public class QueryBuilder {
         for (String k : keyValue.keySet()) {
             result = result.replaceAll(k, "(" + keyValue.get(k) + ")");
         }
-        return result;
+        return resultFormat(result);
     }
 
     public String valueFormat(String value) {

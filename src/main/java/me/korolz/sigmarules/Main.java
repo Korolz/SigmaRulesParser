@@ -22,32 +22,32 @@ public class Main {
         QueryBuilder queryBuilder = new QueryBuilder();
 
 //        yaml = queryBuilder.getSigmaRuleFromFile("ps.yml");
-//        yaml = queryBuilder.getSigmaRuleFromFile("notCondition.yml");
+        yaml = queryBuilder.getSigmaRuleFromFile("notCondition.yml");
 //        yaml = queryBuilder.getSigmaRuleFromFile("simpleCondition.yml");
 //        yaml = queryBuilder.getSigmaRuleFromFile("simpleCondition2.yml");
 //        yaml = queryBuilder.getSigmaRuleFromFile("hardRule.yml");
 
-//        System.out.println(queryBuilder.buildQuery(yaml));
-//        System.out.println(queryBuilder.getOneQueryFromSigmaRuleWithSigConverter(yaml));
+        System.out.println(queryBuilder.buildQuery(yaml));
+        System.out.println(queryBuilder.getOneQueryFromSigmaRuleWithSigConverter(yaml));
 
 
-        try (Stream<Path> paths = Files.walk(Paths.get("sigmaRulesForTest"))) {
-            List<String> filePaths = paths.map(Path::toString).collect(Collectors.toList());
-            filePaths = filePaths.stream().filter(s -> s.endsWith("yml")).collect(Collectors.toList());
-            allCount = filePaths.size();
-            Iterator<String> iterator = filePaths.iterator();
-            while (iterator.hasNext()) {
-                String path = iterator.next();
-                yaml = queryBuilder.getSigmaRuleFromFile(path);
-                try {
-                    queryBuilder.buildQuery(yaml);
-                } catch (Exception e) {
-                    failCount++;
-                    System.out.println(path);
-                }
-            }
-        }
-        System.out.println(failCount);
-        System.out.println(allCount);
+//        try (Stream<Path> paths = Files.walk(Paths.get("sigmaRulesForTest"))) {
+//            List<String> filePaths = paths.map(Path::toString).collect(Collectors.toList());
+//            filePaths = filePaths.stream().filter(s -> s.endsWith("yml")).collect(Collectors.toList());
+//            allCount = filePaths.size();
+//            Iterator<String> iterator = filePaths.iterator();
+//            while (iterator.hasNext()) {
+//                String path = iterator.next();
+//                yaml = queryBuilder.getSigmaRuleFromFile(path);
+//                try {
+//                    queryBuilder.buildQuery(yaml);
+//                } catch (Exception e) {
+//                    failCount++;
+//                    System.out.println(path);
+//                }
+//            }
+//        }
+//        System.out.println(failCount);
+//        System.out.println(allCount);
     }
 }
