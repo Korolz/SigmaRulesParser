@@ -12,6 +12,7 @@ public enum ModifierType {
     REGEX("re"),
     GREATER_THAN("greater_than"),
     LESS_THAN("less_than"),
+    WINDASH("windash"),
     ALL("all");
 
     private final String value;
