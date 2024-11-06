@@ -20,31 +20,40 @@ import java.util.stream.Stream;
 
 
 public class QueryBuilder {
-    public static final String ONE_OF_SELECTION = "1 of selection_*";
-    public static final String ALL_OF_SELECTION = "all of selection_*";
+    public static final String ONE_OF_SELECTION_1 = "1 of selection_*";
+    public static final String ONE_OF_SELECTION_2 = "1 of selection*";
+    public static final String ALL_OF_SELECTION_1 = "all of selection_*";
+    public static final String ALL_OF_SELECTION_2 = "all of selection*";
     public static String yaml = "";
     public static SigmaRuleParser ruleParser = new SigmaRuleParser();
 
 
-    public String buildQuery(String yamlSource) throws IOException, InvalidSigmaRuleException, SigmaRuleParserException {
+    public String buildQuery(String yamlSource) throws IOException, InvalidSigmaRuleException, SigmaRuleParserException, InterruptedException {
         yaml = yamlSource;
-        SigmaRule sigmaRule = ruleParser.parseRule(yamlSource);
+        SigmaRule sigmaRule = new SigmaRule();
+        try {
+            sigmaRule = ruleParser.parseRule(yamlSource);
+        } catch (RuntimeException e) {
+            return this.getOneQueryFromSigmaRuleWithSigConverter(yaml);
+        }
+
 
         // Получаем строку condition непосредственно из String Yaml
         String condition = getConditionLineFromYaml(yamlSource);
-//        System.out.println(condition);
+
 
         // Получаем все Conditions и Detections
         List<SigmaCondition> sigmaConditions = sigmaRule.getConditionsManager().getConditions();
         DetectionsManager detectionsManager = sigmaRule.getDetectionsManager();
 
-//      Вычленяем имена Detection из строки Condition
+        //      Вычленяем имена Detection из строки Condition
         List<String> conditionNames = new ArrayList<>();
         for (SigmaCondition sigmaCondition : sigmaConditions) {
             recursiveInspectConditionNames(sigmaCondition, conditionNames);
         }
 
-        if (condition.equals(ONE_OF_SELECTION) || condition.equals(ALL_OF_SELECTION)) {
+        if (condition.equals(ONE_OF_SELECTION_1) || condition.equals(ALL_OF_SELECTION_1) ||
+                condition.equals(ONE_OF_SELECTION_2) || condition.equals(ALL_OF_SELECTION_2)) {
             conditionNames = List.copyOf(detectionsManager.getAllDetections().keySet());
             condition = getConditionLine(condition, conditionNames);
         }
@@ -77,7 +86,7 @@ public class QueryBuilder {
 
                 if (d.getMatchAll()) {
                     valueResult = valueFormat(valueResult);
-                    if (valueResult.contains(", "))  valueResult = valueResult.replaceAll(", ", "\" AND " + d.getName() + ":");
+                    if (valueResult.contains(", "))  valueResult = valueResult.replaceAll(", ", " AND " + d.getName() + ":");
                     if (valueResult.endsWith("\"")) valueResult = new StringBuilder(valueResult).delete(valueResult.length() - 1, valueResult.length()).toString();
                 } else {
                     valueResult = valueFormat(valueResult);
@@ -269,7 +278,6 @@ public class QueryBuilder {
                 if (line.contains(detectionName)) {
                     iterator.next();
                     String nextLine = iterator.next().trim();
-//                    System.out.println(nextLine);
                     if (nextLine.startsWith("- ")) return true;
                 }
             }
