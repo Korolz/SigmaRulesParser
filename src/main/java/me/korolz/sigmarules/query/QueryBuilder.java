@@ -24,20 +24,19 @@ public class QueryBuilder {
     public static final String ONE_OF_SELECTION_2 = "1 of selection*";
     public static final String ALL_OF_SELECTION_1 = "all of selection_*";
     public static final String ALL_OF_SELECTION_2 = "all of selection*";
-    public static String yamlPath = "";
+    public static String yaml = "";
+    public static SigmaRuleParser ruleParser = new SigmaRuleParser();
 
-    public static SigmaRuleParser ruleParser;
 
-    public QueryBuilder() {ruleParser = new SigmaRuleParser();}
-
-    public String buildQuery(String yamlSource) throws IOException, InvalidSigmaRuleException, SigmaRuleParserException, InterruptedException, URISyntaxException {
-        yamlPath = yamlSource;
-        SigmaRule sigmaRule;
+    public String buildQuery(String yamlSource) throws IOException, InvalidSigmaRuleException, SigmaRuleParserException, InterruptedException {
+        yaml = yamlSource;
+        SigmaRule sigmaRule = new SigmaRule();
         try {
             sigmaRule = ruleParser.parseRule(yamlSource);
         } catch (RuntimeException e) {
-            return this.getOneQueryFromSigmaRuleWithSigConverter(yamlPath);
+            return this.getOneQueryFromSigmaRuleWithSigConverter(yaml);
         }
+
 
         // Получаем строку condition непосредственно из String Yaml
         String condition = getConditionLineFromYaml(yamlSource);
@@ -77,7 +76,7 @@ public class QueryBuilder {
             }
             StringBuilder keyValueByDetectionName = new StringBuilder();
             for (SigmaDetection d : detections) {
-                if (isList(yamlPath, currentDetectionName)) {
+                if (isList(yaml, currentDetectionName)) {
                     keyValueByDetectionName.append(d.getName() + ":" + d.getValues() + " OR ");
                 } else {
                     keyValueByDetectionName.append(d.getName() + ":" + d.getValues() + " AND ");
@@ -115,12 +114,12 @@ public class QueryBuilder {
                         List<SigmaDetection> detections = detectionsManager.getDetectionsByName(currentDetectionName).getDetections();
                         for (SigmaDetection d : detections) {
                             String currentValue = d.getValues().toString();
-                            if (isListForHardRules(yamlPath, currentDetectionName) && !d.getMatchAll()) {
+                            if (isListForHardRules(yaml, currentDetectionName) && !d.getMatchAll()) {
                                 currentValue = currentValue.replaceAll(", ", " OR ");
                             } else {
                                 currentValue = currentValue.replaceAll(", ", " AND ");
                             }
-                            if (isListForHardRules(yamlPath, currentDetectionName)) {
+                            if (isListForHardRules(yaml, currentDetectionName)) {
                                 if (d.getMatchAll()) {
                                     keyValueByDetectionName.append(d.getName() + ":" + currentValue + " AND ");
                                 } else {
@@ -177,13 +176,9 @@ public class QueryBuilder {
         for (int i = 0; i < detectionsNames.size(); i++) {
             if (i + 1 < detectionsNames.size()) {
                 if (condition.contains("all")) {
-                    conditionResult
-                            .append(detectionsNames.get(i))
-                            .append(" AND ");
+                    conditionResult.append(detectionsNames.get(i) + " AND ");
                 } else if (condition.contains("and")){
-                    conditionResult
-                            .append(detectionsNames.get(i))
-                            .append(" OR ");
+                    conditionResult.append(detectionsNames.get(i) + " OR ");
                 }
             } else {
                 conditionResult.append(detectionsNames.get(i));
@@ -230,7 +225,7 @@ public class QueryBuilder {
     public String getSigmaRuleFromFile(String file) throws IOException, InvalidSigmaRuleException, SigmaRuleParserException {
         StringBuilder newYaml = new StringBuilder();
         try (BufferedReader br = (new BufferedReader(new InputStreamReader(new FileInputStream(file))))) {
-            Iterator<String> iterator = br.lines().iterator();
+            Iterator iterator = br.lines().iterator();
             while (iterator.hasNext()) {
                 newYaml.append(iterator.next());
                 newYaml.append("\n");
@@ -240,9 +235,21 @@ public class QueryBuilder {
         return newYaml.toString();
     }
 
-    public String getOneQueryFromSigmaRuleWithSigConverter(String yaml) throws IOException, InterruptedException, URISyntaxException {
-        String response = QueryHelper.getQueryFromPost(yaml);
-        return response.replaceAll("\\*",".*");
+    public String getOneQueryFromSigmaRuleWithSigConverter(String yaml) throws IOException, InterruptedException {
+        String encoded = Base64.getEncoder().encodeToString(yaml.getBytes());
+        String jsonInputString = String.format(
+                "{\"rule\":\"%s\",\"pipelineYml\":\"\",\"pipeline\":[],\"target\":\"opensearch\",\"format\":\"default\"}",
+                encoded
+        );
+        HttpClient client = HttpClient.newHttpClient();
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create("https://sigconverter.io/sigma"))
+                .POST(HttpRequest.BodyPublishers.ofString(jsonInputString))
+                .header("Content-Type", "application/json")
+                .build();
+
+        HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+        return response.body().replaceAll("\\*",".*");
     }
 
     private boolean isList(String yaml, String detectionName) {
@@ -301,11 +308,21 @@ public class QueryBuilder {
                 } catch (IOException e) {
 
                 }
+                String yaml = Base64.getEncoder().encodeToString(newYaml.toString().getBytes());
 
-                String response = QueryHelper.getQueryFromPost(newYaml.toString());
+                String jsonInputString = "{\"rule\":\"" +  yaml + "\",\"pipelineYml\":\"\",\"pipeline\":[],\"target\":\"opensearch\",\"format\":\"default\"}";
+
+                HttpClient httpClient = HttpClient.newHttpClient() ;
+                HttpRequest request = HttpRequest.newBuilder()
+                        .uri(new URI("https://sigconverter.io/sigma"))
+                        .header("Content-Type", "Application/Json")
+                        .POST(HttpRequest.BodyPublishers.ofString(jsonInputString))
+                        .build();
+
+                HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
                 try (BufferedWriter bw = new BufferedWriter(new FileWriter("result.txt", true))){
-                    bw.append(id + ": " + response + "\n");
+                    bw.append(id + ": " + response.body() + "\n");
                 } catch (IOException e) {
 
                 }
