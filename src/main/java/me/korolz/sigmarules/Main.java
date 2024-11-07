@@ -23,10 +23,10 @@ public class Main {
         QueryBuilder queryBuilder = new QueryBuilder();
 
 //        yaml = queryBuilder.getSigmaRuleFromFile("ps.yml");
-        yaml = queryBuilder.getSigmaRuleFromFile("notCondition.yml");
+//        yaml = queryBuilder.getSigmaRuleFromFile("notCondition.yml");
 //        yaml = queryBuilder.getSigmaRuleFromFile("simpleCondition.yml");
 //        yaml = queryBuilder.getSigmaRuleFromFile("simpleCondition2.yml");
-//        yaml = queryBuilder.getSigmaRuleFromFile("hardRule.yml");
+        yaml = queryBuilder.getSigmaRuleFromFile("hardRule.yml");
 
         System.out.println(queryBuilder.buildQuery(yaml));
         System.out.println(queryBuilder.getOneQueryFromSigmaRuleWithSigConverter(yaml));
@@ -52,3 +52,6 @@ public class Main {
 //        System.out.println(allCount);
     }
 }
+
+//(ParentImage:(.*\\appvlp.exe)) AND (NOT (Image:(.*\:\\Windows\\SysWOW64\\rundll32.exe OR .*\:\\Windows\\System32\\rundll32.exe))) AND (NOT (Image:(.*\:\\Program Files\\Microsoft Office.*) AND Image:(.*\\MSOUC.EXE) OR Image:(.*\:\\Program Files\\Microsoft Office.* AND .*\\SkypeSrv\\.*) AND Image:(.*\\SKYPESERVER.EXE) OR Image:(.*\:\\Program Files\\Microsoft Office.*) AND Image:(.*\\msoasb.exe)))
+//        ParentImage:.*\\appvlp.exe AND (NOT (Image:(.*\:\\Windows\\SysWOW64\\rundll32.exe OR .*\:\\Windows\\System32\\rundll32.exe))) AND (NOT ((Image:".*\:\\Program\ Files\\Microsoft\ Office.*" AND Image:.*\\msoasb.exe) OR ((Image:".*\:\\Program\ Files\\Microsoft\ Office.*" AND Image:.*\\SkypeSrv\\.*) AND Image:.*\\SKYPESERVER.EXE) OR (Image:".*\:\\Program\ Files\\Microsoft\ Office.*" AND Image:.*\\MSOUC.EXE)))
