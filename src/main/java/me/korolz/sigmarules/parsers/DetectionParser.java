@@ -2,7 +2,6 @@ package me.korolz.sigmarules.parsers;
 
 import me.korolz.sigmarules.exceptions.InvalidSigmaRuleException;
 import me.korolz.sigmarules.exceptions.SigmaRuleParserException;
-import me.korolz.sigmarules.fieldmapping.FieldMapper;
 import me.korolz.sigmarules.models.DetectionsManager;
 import me.korolz.sigmarules.models.ModifierType;
 import me.korolz.sigmarules.models.SigmaDetection;
@@ -12,7 +11,6 @@ import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
-import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
@@ -29,13 +27,7 @@ public class DetectionParser {
     static final String SEPERATOR = "|";
     static final String COMMA_SEP = ",";
 
-    private FieldMapper fieldMapper = null;
-
     public DetectionParser() {}
-
-    public DetectionParser(FieldMapper fieldMapper) {
-        this.fieldMapper = fieldMapper;
-    }
 
     public DetectionsManager parseDetections(ParsedSigmaRule sigmaRule)
         throws InvalidSigmaRuleException, SigmaRuleParserException {
@@ -142,16 +134,6 @@ public class DetectionParser {
 
         detectionModel.setSigmaName(parsedName);
         detectionModel.setName(parsedName);
-
-        // override name with mapped name
-        if (fieldMapper != null) {
-            // TODO: mapped fields can be an array - only taking first value for now
-            List<String> mappedField = fieldMapper.getSigmaFields().getSigmaField(parsedName);
-            if (mappedField.isEmpty() == false) {
-                System.out.println("mappedField: " + mappedField.get(0));
-                detectionModel.setName(mappedField.get(0));
-            }
-        }
 
         // handles the case where the modifier is piped with the name (ex. field|endswith)
         // modifiers can be chained together

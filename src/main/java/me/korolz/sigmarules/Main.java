@@ -5,6 +5,7 @@ import me.korolz.sigmarules.exceptions.SigmaRuleParserException;
 import me.korolz.sigmarules.query.QueryBuilder;
 
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -18,7 +19,7 @@ public class Main {
     public static int failCount = 0;
     public static int allCount = 0;
 
-    public static void main(String[] args) throws IOException, InvalidSigmaRuleException, SigmaRuleParserException, InterruptedException {
+    public static void main(String[] args) throws IOException, InvalidSigmaRuleException, SigmaRuleParserException, InterruptedException, URISyntaxException {
         QueryBuilder queryBuilder = new QueryBuilder();
 
 //        yaml = queryBuilder.getSigmaRuleFromFile("ps.yml");
