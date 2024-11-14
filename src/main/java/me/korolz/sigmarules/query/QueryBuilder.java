@@ -78,7 +78,7 @@ public class QueryBuilder {
                 } else {
                     valueResult = valueResult.replaceAll(", ", " OR ");
                 }
-                keyValueByDetectionName.append(d.getName() + ":" + valueResult + " AND ");
+                keyValueByDetectionName.append(d.getName()).append(":").append(valueResult).append(" AND ");
                 valueResult = valueFormat(keyValueByDetectionName.toString());
             }
             result = result.replaceAll(currentDetectionName, "(" + valueResult + ")");
@@ -244,7 +244,6 @@ public class QueryBuilder {
             while (iterator.hasNext()) {
                 String line = iterator.next();
                 if (line.contains(detectionName)) {
-                    iterator.next();
                     String nextLine = iterator.next().trim();
                     if (nextLine.startsWith("- ")) return true;
                 }
