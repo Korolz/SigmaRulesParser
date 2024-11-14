@@ -6,11 +6,7 @@ import me.korolz.sigmarules.models.*;
 import me.korolz.sigmarules.parsers.SigmaRuleParser;
 
 import java.io.*;
-import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -95,39 +91,35 @@ public class QueryBuilder {
         Map<String, String> keyValue = new HashMap<>();
         for (String currentDetectionName : detectionName) {
             for (String conditionName : conditionNames) {
-                if (!conditionName.equals("of")) {
-                    if (currentDetectionName.contains(conditionName.replace("_*", ""))) {
-                        StringBuilder keyValueByDetectionName = new StringBuilder();
-                        List<SigmaDetection> detections = detectionsManager.getDetectionsByName(currentDetectionName).getDetections();
-                        for (SigmaDetection d : detections) {
-                            String currentValue = d.getValues().toString();
-                            if (isListForHardRules(yaml, currentDetectionName) && !d.getMatchAll()) {
-                                currentValue = currentValue.replaceAll(", ", " OR ");
-                            } else {
-                                currentValue = currentValue.replaceAll(", ", " AND ");
-                            }
-                            if (isListForHardRules(yaml, currentDetectionName)) {
-                                if (d.getMatchAll()) {
-                                    keyValueByDetectionName.append(d.getName() + ":" + currentValue + " AND ");
-                                } else {
-                                    keyValueByDetectionName.append(d.getName() + ":" + currentValue + " OR ");
-                                }
-                            } else {
-                                keyValueByDetectionName.append(d.getName() + ":" + currentValue + " AND ");
-                            }
-                        }
-                        keyValueByDetectionName = new StringBuilder(valueFormat(keyValueByDetectionName.toString()));
-                        keyValueByDetectionName = new StringBuilder(keyValueByDetectionName.toString().replaceAll("\\\\\\.\\*", ".*"));
-                        if (!keyValue.keySet().contains(conditionName)) {
-                            keyValue.put(conditionName, keyValueByDetectionName.toString());
+                if (currentDetectionName.contains(conditionName.replace("_*", "")) & !conditionName.equals("of")) {
+                    StringBuilder keyValueByDetectionName = new StringBuilder();
+                    List<SigmaDetection> detections = detectionsManager.getDetectionsByName(currentDetectionName).getDetections();
+                    System.out.println(detectionsManager);
+                    for (SigmaDetection d : detections) {
+                        String currentValue = d.getValues().toString();
+                        if (!d.getMatchAll()) {
+                            currentValue = currentValue.replaceAll(", ", " OR ");
                         } else {
-                            keyValueByDetectionName.append(" OR " + keyValue.get(conditionName));
-                            keyValue.put(conditionName, keyValueByDetectionName.toString());
+                            currentValue = currentValue.replaceAll(", ", " AND ");
+                        }
+                        if (isListForHardRules(yaml, currentDetectionName)) {
+                            if (d.getMatchAll()) {
+                                keyValueByDetectionName.append(d.getName()).append(":").append(currentValue).append(" AND ");
+                            } else {
+                                keyValueByDetectionName.append(d.getName()).append(":").append(currentValue).append(" OR ");;
+                            }
+                        } else {
+                            keyValueByDetectionName.append(d.getName()).append(":").append(currentValue).append(" AND ");
                         }
                     }
-                } else {
-                    result = result.replaceAll("1 of ", "");
-                    result = result.replaceAll("all of ", "");
+                    keyValueByDetectionName = new StringBuilder(valueFormat(keyValueByDetectionName.toString()));
+//                        keyValueByDetectionName = new StringBuilder(keyValueByDetectionName.toString().replaceAll("\\\\\\.\\*", ".*"));
+                    if (!keyValue.keySet().contains(conditionName)) {
+                        keyValue.put(conditionName, keyValueByDetectionName.toString());
+                    } else {
+                        keyValueByDetectionName.append(" OR " + keyValue.get(conditionName));
+                        keyValue.put(conditionName, keyValueByDetectionName.toString());
+                    }
                 }
             }
         }
@@ -154,7 +146,9 @@ public class QueryBuilder {
     public String resultFormat(String result) {
 //        result = result.replaceAll("\\\\\\.\\*", "\\\\\\\\.*");
         if (result.contains(", "))  result = result.replaceAll(", ", " OR ");
-        result = result.replaceAll("\\)" + "\\*", "))");
+        result = result.replaceAll("\\)" + "\\*", ")");
+        result = result.replaceAll("1 of ", "");
+        result = result.replaceAll("all of ", "");
         return result.replace("not", "NOT");
     }
 
@@ -245,7 +239,6 @@ public class QueryBuilder {
     }
 
     private boolean isListForHardRules(String yaml, String detectionName) {
-
         try (BufferedReader br = (new BufferedReader(new StringReader(yaml)))) {
             Iterator<String> iterator = br.lines().iterator();
             while (iterator.hasNext()) {

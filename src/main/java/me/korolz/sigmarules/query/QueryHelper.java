@@ -10,13 +10,13 @@ import java.util.Base64;
 
 public class QueryHelper {
 
-    private static final String uriString = "https://sigconverter.io/sigma";
+    private static final String uriString = "https://sigconverter.io/api/v1/1.0.4/convert";
     private static final String jsonBody =
             "{" +
                     "\"rule\":\"%s\"," +
                     "\"pipelineYml\":\"\"," +
                     "\"pipeline\":[]," +
-                    "\"target\":\"opensearch\"," +
+                    "\"target\":\"opensearch_lucene\"," +
                     "\"format\":\"default\"" +
                     "}";
 
